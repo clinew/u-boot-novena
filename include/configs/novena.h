@@ -259,7 +259,7 @@
 	"netdev=eth0\0"							\
 	"kernel_addr_r=0x12000000\0"					\
         "fdt_addr_r=0x11ff0000\0"					\
-        "initrd_addr_r=-\0"						\
+        "initrd_addr_r=0x15000000\0"					\
 	"addcons="							\
 		"setenv bootargs ${bootargs} "				\
 		"console=${consdev},${baudrate}\0"			\
@@ -295,7 +295,7 @@
 	"stdin=serial\0"						\
 	"stdout=serial\0"						\
 	"stderr=serial\0"						\
-	"bootargs=init=/lib/systemd/systemd rootwait rw\0"		\
+	"bootargs=init=/sbin/init rootwait rw coredump_filter=0\0"	\
 	"bootenv=uEnv.txt\0"						\
         "loadbootenv=load ${bootsrc} ${bootdev} ${loadaddr} ${bootenv}\0" \
 	"importbootenv="						\
@@ -303,6 +303,8 @@
 		"env import -t -r $loadaddr $filesize\0"		\
 	"rmlcd=fdt rm /soc/aips-bus@02000000/ldb@020e0008\0"		\
 	"novena_boot="							\
+		"setenv stdout vga ; "					\
+		"setenv stderr vga ; "					\
 		"if run loadbootenv; then "				\
 			"echo Loaded environment from ${bootenv} ; "	\
 			"run importbootenv ; "				\
@@ -338,11 +340,13 @@
 			"if sleep 2 ; then true; else exit ; fi ; "	\
 			"echo Entering recovery mode... ; "		\
 			"setenv rec .recovery ;	"			\
-			"setenv bootargs ${bootargs} recovery ; "	\
+			"setenv bootargs init=/lib/systemd/systemd rootwait rw recovery ; " \
+			"setenv initrd_addr_r - ; "			\
 			"setenv rootdev PARTUUID=4e6f764d-03 ; " /* NovM */ \
 		"else ; "						\
 			"echo Hold recovery button to boot to "		\
 			"recovery, or to enter U-Boot shell. ; "	\
+			"setenv rootdev /dev/mapper/${devname} ; " \
 		"fi ; "							\
 		"if run video ; then "					\
 			"setenv consdev tty0 ; "			\
@@ -353,10 +357,14 @@
 			"${kernel_addr_r} zImage${rec} ; "		\
 		"fatload ${bootsrc} ${bootdev} "			\
 			"${fdt_addr_r} novena${rec}.dtb ; "		\
+		"fatload ${bootsrc} ${bootdev} "			\
+			"${initrd_addr_r} uInitramfs ; "		\
 		"fdt addr ${fdt_addr_r}	; "				\
 		"setenv bootargs ${bootargs} "				\
 			"root=${rootdev} "				\
-			"console=${consdev} ; "				\
+			"initrd=uInitramfs "				\
+			"console=${consdev} "				\
+			"devices=/dev/disk/by-id/${devname} ; " \
 		"run rmlcd ; "						\
 		"if test -n $finalhook; then "				\
 			"echo Running finalhook ... ; "			\
